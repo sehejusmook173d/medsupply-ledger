@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useWallet } from "@/context/wallet-context"
-import { IInventoryItem } from "@/models/Inventory"
+import { useMedxData } from "@/context/medx-data-context"
+import type { MvpInventoryItem } from "@/lib/medx-mvp-types"
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline"
 import AddItemModal from "@/components/inventory/AddItemModal"
 import EditItemModal from "@/components/inventory/EditItemModal"
@@ -19,113 +20,69 @@ interface InventoryFormData {
 }
 
 export default function InventoryPage() {
-  const { walletAddress } = useWallet()
-  const [items, setItems] = useState<IInventoryItem[]>([])
+  const { address: walletAddress } = useWallet()
+  const { inventoryFor, addItem, replaceInventory, tick } = useMedxData()
+  const [items, setItems] = useState<MvpInventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<IInventoryItem | null>(null)
-
-  const fetchInventory = async () => {
-    if (!walletAddress) return
-
-    try {
-      const response = await fetch(`/api/inventory?walletAddress=${walletAddress}`)
-      if (!response.ok) throw new Error("Failed to fetch inventory")
-      const data = await response.json()
-      setItems(data)
-    } catch (error) {
-      console.error("Error fetching inventory:", error)
-      toast.error("Failed to load inventory items")
-    } finally {
-      setLoading(false)
-    }
-  }
+  const [selectedItem, setSelectedItem] = useState<MvpInventoryItem | null>(null)
 
   useEffect(() => {
-    if (walletAddress) {
-      fetchInventory()
+    if (!walletAddress) {
+      setItems([])
+      setLoading(false)
+      return
     }
-  }, [walletAddress])
+    setItems(inventoryFor(walletAddress))
+    setLoading(false)
+  }, [walletAddress, tick, inventoryFor])
 
   const handleAddItem = async (item: InventoryFormData) => {
+    if (!walletAddress) return
     try {
-      const response = await fetch("/api/inventory", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...item, walletAddress }),
+      const row = addItem(walletAddress, {
+        name: item.name,
+        description: item.description,
+        quantity: item.quantity,
+        price: item.price,
+        category: item.category,
+        imageUrl: item.imageUrl || undefined,
       })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to add item")
-      }
-
-      const newItem = await response.json()
-      setItems((prevItems) => [...prevItems, newItem])
+      setItems((prev) => [...prev, row])
       setShowAddModal(false)
-      toast.success("Item added successfully")
+      toast.success("Item added (saved in this browser only)")
     } catch (error) {
       console.error("Error adding item:", error)
       toast.error(error instanceof Error ? error.message : "Failed to add item")
     }
   }
 
-  const handleEditItem = async (item: Partial<IInventoryItem>) => {
-    if (!selectedItem) return
+  const handleEditItem = async (item: Partial<MvpInventoryItem>) => {
+    if (!selectedItem || !walletAddress) return
 
-    try {
-      const response = await fetch("/api/inventory", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          walletAddress,
-          name: selectedItem.name,
-          ...item,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to update item")
-      }
-
-      const updatedItem = await response.json()
-      setItems((prevItems) => prevItems.map((i) => (i.name === selectedItem.name ? updatedItem : i)))
-      setShowEditModal(false)
-      setSelectedItem(null)
-      toast.success("Item updated successfully")
-    } catch (error) {
-      console.error("Error updating item:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to update item")
-    }
+    const list = inventoryFor(walletAddress)
+    const next = list.map((i) =>
+      i._id === selectedItem._id ? { ...i, ...item, quantity: Number(item.quantity ?? i.quantity), price: Number(item.price ?? i.price) } : i
+    )
+    replaceInventory(walletAddress, next)
+    setItems(next)
+    setShowEditModal(false)
+    setSelectedItem(null)
+    toast.success("Item updated")
   }
 
   const handleDeleteItem = async () => {
-    if (!selectedItem) return
+    if (!selectedItem || !walletAddress) return
 
-    try {
-      const response = await fetch(
-        `/api/inventory?walletAddress=${walletAddress}&name=${selectedItem.name}`,
-        {
-          method: "DELETE",
-        }
-      )
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to delete item")
-      }
-
-      setItems((prevItems) => prevItems.filter((i) => i.name !== selectedItem.name))
-      setShowDeleteModal(false)
-      setSelectedItem(null)
-      toast.success("Item deleted successfully")
-    } catch (error) {
-      console.error("Error deleting item:", error)
-      toast.error(error instanceof Error ? error.message : "Failed to delete item")
-    }
+    const list = inventoryFor(walletAddress)
+    const next = list.filter((i) => i._id !== selectedItem._id)
+    replaceInventory(walletAddress, next)
+    setItems(next)
+    setShowDeleteModal(false)
+    setSelectedItem(null)
+    toast.success("Item deleted")
   }
 
   if (!walletAddress) {
@@ -165,7 +122,7 @@ export default function InventoryPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item) => (
             <div
-              key={item.name}
+              key={item._id}
               className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
             >
               {item.imageUrl && (
@@ -219,9 +176,9 @@ export default function InventoryPage() {
         />
       )}
 
-      {showEditModal && selectedItem && (
+      {showEditModal && selectedItem && walletAddress && (
         <EditItemModal
-          item={selectedItem}
+          item={{ ...selectedItem, walletAddress }}
           onClose={() => {
             setShowEditModal(false)
             setSelectedItem(null)
@@ -230,9 +187,9 @@ export default function InventoryPage() {
         />
       )}
 
-      {showDeleteModal && selectedItem && (
+      {showDeleteModal && selectedItem && walletAddress && (
         <DeleteItemModal
-          item={selectedItem}
+          item={{ ...selectedItem, walletAddress }}
           onClose={() => {
             setShowDeleteModal(false)
             setSelectedItem(null)
@@ -242,4 +199,4 @@ export default function InventoryPage() {
       )}
     </div>
   )
-} 
+}

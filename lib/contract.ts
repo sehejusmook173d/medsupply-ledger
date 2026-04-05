@@ -1,5 +1,6 @@
 import { ethers, BrowserProvider, Contract } from "ethers"; // Import necessary classes/functions
 import contractABI from "../contracts/MedXSupplyChain.json";
+import { getInjectedEthereum } from "@/lib/injected-ethereum";
 
 // Contract address will be filled after deployment
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
@@ -59,11 +60,12 @@ const CONTRACT_ABI = [
 
 // Function to get the contract instance
 export async function getContract() {
-  if (typeof window === "undefined" || !window.ethereum) {
-    throw new Error("Please install MetaMask to use this application");
+  const eth = typeof window !== "undefined" ? getInjectedEthereum() : null;
+  if (!eth) {
+    throw new Error("Please install a browser wallet (e.g. MetaMask) to use this application");
   }
 
-  const provider = new BrowserProvider(window.ethereum);
+  const provider = new BrowserProvider(eth);
   const signer = await provider.getSigner();
   return new Contract(contractAddress, contractABI.abi, signer);
 }

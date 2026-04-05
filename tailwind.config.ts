@@ -95,7 +95,17 @@ const config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("./theme/js/medx-reset.min.js"),
+    require("./theme/js/medx-tokens.min.js"),
+    require("./theme/js/medx-utilities.min.js"),
+    require("./theme/js/medx-components.min.js"),
+    require("./theme/js/medx-forms.min.js"),
+    require("./theme/js/medx-layout.min.js"),
+    require("./theme/js/medx-r928u.min.js"),
+    require("./theme/js/medx-a111y.min.js"),
+    require("tailwindcss-animate"),
+  ],
 } satisfies Config
 
 export default config

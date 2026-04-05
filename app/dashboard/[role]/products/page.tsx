@@ -21,7 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast"
 import { useWallet } from "@/context/wallet-context"
 import { Filter, Package, Plus, Search, ShoppingCart } from "lucide-react"
-import axios from "axios"
+import { useMedxData } from "@/context/medx-data-context"
+import { normalizeAddress } from "@/lib/medx-mvp-store"
 
 interface ProductsPageProps {
   params: {
@@ -48,7 +49,8 @@ interface Product {
 
 export default function ProductsPage({ params }: ProductsPageProps) {
   const { role } = params
-  const { address, userData } = useWallet()
+  const { address } = useWallet()
+  const { products: mvpProducts, createOrder, usersInRole, tick, getUser } = useMedxData()
   const { toast } = useToast()
   const [isLoaded, setIsLoaded] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
@@ -67,34 +69,18 @@ export default function ProductsPage({ params }: ProductsPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [shippingAddress, setShippingAddress] = useState("")
 
-  // Fetch products
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await axios.get("/api/products")
-        if (response.status === 200) {
-          const productData = response.data
-          setProducts(productData)
-          setFilteredProducts(productData)
-
-          // Extract unique categories
-          const uniqueCategories = Array.from(new Set(productData.map((p: Product) => p.category)))
-          setCategories(uniqueCategories as string[])
-
-          setIsLoaded(true)
-        }
-      } catch (error) {
-        console.error("Error fetching products:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load products. Please try again.",
-          variant: "destructive",
-        })
-      }
-    }
-
-    fetchProducts()
-  }, [toast])
+    const productData = mvpProducts.map((p) => ({
+      ...p,
+      manufactureDate: new Date(p.manufactureDate),
+      expiryDate: new Date(p.expiryDate),
+    })) as Product[]
+    setProducts(productData)
+    setFilteredProducts(productData)
+    const uniqueCategories = Array.from(new Set(productData.map((p: Product) => p.category)))
+    setCategories(uniqueCategories as string[])
+    setIsLoaded(true)
+  }, [mvpProducts, tick])
 
   // Filter products based on search, category, and tab
   useEffect(() => {
@@ -166,34 +152,37 @@ export default function ProductsPage({ params }: ProductsPageProps) {
     setIsSubmitting(true)
 
     try {
-      // Determine seller based on role and products
-      // In a real app, this would be more sophisticated
-      const sellerAddress = "0x1234567890123456789012345678901234567890" // Example seller address
+      const manufacturers = usersInRole("manufacturer")
+      const seller =
+        manufacturers.find((u) => normalizeAddress(u.walletAddress) !== normalizeAddress(address!)) ??
+        manufacturers[0]
+      const sellerAddress = seller?.walletAddress ?? address!
+      const buyerU = address ? getUser(address) : null
+      const sellerU = getUser(sellerAddress)
 
-      // Prepare order data
-      const orderData = {
-        buyerAddress: address,
-        sellerAddress: sellerAddress,
+      createOrder({
+        from: normalizeAddress(sellerAddress),
+        to: normalizeAddress(address!),
+        fromLabel: sellerU?.companyName || sellerU?.name || sellerAddress,
+        toLabel: buyerU?.companyName || buyerU?.name || address!,
         items: cart.map((item) => ({
           productId: item.product._id,
+          name: item.product.name,
           quantity: item.quantity,
+          price: item.product.price,
         })),
-        shippingAddress: shippingAddress,
-      }
+        totalAmount: calculateTotal(),
+        status: "Pending",
+        shippingAddress: shippingAddress || undefined,
+      })
 
-      // Submit order to API
-      const response = await axios.post("/api/orders", orderData)
+      toast({
+        title: "Order placed",
+        description: "Saved locally in this browser (MVP — no backend).",
+      })
 
-      if (response.status === 201) {
-        toast({
-          title: "Order placed successfully",
-          description: `Order #${response.data.orderId} has been placed`,
-        })
-
-        // Clear cart
-        setCart([])
-        setIsCartDialogOpen(false)
-      }
+      setCart([])
+      setIsCartDialogOpen(false)
     } catch (error) {
       console.error("Error placing order:", error)
       toast({

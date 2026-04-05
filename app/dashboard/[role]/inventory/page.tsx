@@ -10,7 +10,7 @@ import DashboardLayout from "@/components/dashboard-layout"; // Assuming this co
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Removed TabsContent as it wasn't used directly here
 import { AlertCircle, ArrowUpDown, Box, CheckCircle2, Filter, Package, Plus, Search, X } from "lucide-react";
-import axios from "axios";
+import { useMedxData } from "@/context/medx-data-context";
 
 // 2. Update props interface
 interface InventoryPageProps {
@@ -33,6 +33,7 @@ export default function InventoryPage({ params }: InventoryPageProps) {
   // 3. Destructure 'role' directly from params
   const { role } = params;
   const { address } = useWallet();
+  const { inventoryFor, addItem, tick } = useMedxData();
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
@@ -51,34 +52,15 @@ export default function InventoryPage({ params }: InventoryPageProps) {
   });
 
   useEffect(() => {
-    const fetchInventory = async () => {
-      if (!address) {
-        setError("Wallet not connected");
-        setIsLoaded(true);
-        return;
-      }
-
-      try {
-        setIsLoaded(false);
-        setError(null);
-        const response = await axios.get(`/api/inventory/${address}`);
-        
-        // The API returns an array directly
-        if (Array.isArray(response.data)) {
-          setInventoryItems(response.data);
-        } else {
-          setError("Invalid response format from server");
-        }
-      } catch (error: any) {
-        console.error("Error fetching inventory:", error);
-        setError(error.response?.data?.error || "Failed to fetch inventory items. Please try again later.");
-      } finally {
-        setIsLoaded(true);
-      }
-    };
-
-    fetchInventory();
-  }, [address]);
+    if (!address) {
+      setError("Wallet not connected");
+      setIsLoaded(true);
+      return;
+    }
+    setError(null);
+    setInventoryItems(inventoryFor(address));
+    setIsLoaded(true);
+  }, [address, tick, inventoryFor]);
 
   // Role-specific inventory data (remains the same)
   const roleColor =
@@ -102,29 +84,28 @@ export default function InventoryPage({ params }: InventoryPageProps) {
     }
 
     try {
-      const response = await axios.post("/api/inventory", {
-        ...newItem,
-        walletAddress: address,
+      const row = addItem(address, {
+        name: newItem.name,
+        description: newItem.description,
         quantity: Number(newItem.quantity),
-        price: Number(newItem.price)
+        price: Number(newItem.price),
+        category: newItem.category,
+        imageUrl: newItem.imageUrl || undefined,
       });
-
-      if (response.status === 201) {
-        setInventoryItems([...inventoryItems, response.data]);
-        setNewItem({
-          name: "",
-          description: "",
-          quantity: "",
-          price: "",
-          category: "",
-          imageUrl: ""
-        });
-        setIsAddingItem(false);
-        setAlert({ type: 'success', message: "Item added successfully" });
-      }
-    } catch (error: any) {
+      setInventoryItems((prev) => [...prev, row]);
+      setNewItem({
+        name: "",
+        description: "",
+        quantity: "",
+        price: "",
+        category: "",
+        imageUrl: ""
+      });
+      setIsAddingItem(false);
+      setAlert({ type: 'success', message: "Item added successfully" });
+    } catch (error: unknown) {
       console.error("Error adding item:", error);
-      setAlert({ type: 'error', message: error.response?.data?.error || "Failed to add item" });
+      setAlert({ type: 'error', message: error instanceof Error ? error.message : "Failed to add item" });
     }
   };
 

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useWallet } from '@/context/wallet-context'; // Adjust path if needed
 import DashboardLayout from '@/components/dashboard-layout'; // Adjust path if needed
 import {
-    Copy, Wallet, CheckCircle, AlertCircle, Moon, Sun, Fingerprint, Trash2, Bell, UserCog, ChevronDown, LogOut // Added new icons
+    Copy, Wallet, CheckCircle, AlertCircle, Moon, Sun, Loader2, Trash2, LogOut
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch"; // Import Switch
@@ -47,15 +47,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ params }) => {
   // Get the role from the URL params, primarily for layout/display consistency if needed
   const urlRole = params.role;
 
-  const { address, userData, disconnectWallet /* Assume disconnect exists */ } = useWallet(); // Add disconnectWallet if available
+  const { address, userData, disconnect, updateUserProfile } = useWallet();
   const { theme, setTheme } = useTheme(); // Hook for dark mode
 
   // State for various settings
   const [copied, setCopied] = useState(false);
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false); // Placeholder state
-  const [notificationsEnabled, setNotificationsEnabled] = useState(userData?.billNotificationsEnabled ?? false); // Initialize from userData if available
-  const [selectedRole, setSelectedRole] = useState<string>(userData?.role || urlRole); // Initialize with current role
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    typeof userData?.billNotificationsEnabled === "boolean" ? userData.billNotificationsEnabled : false
+  );
+  const [selectedRole, setSelectedRole] = useState<string>(
+    typeof userData?.role === "string" ? userData.role : urlRole
+  );
   const [isDeleting, setIsDeleting] = useState(false); // Loading state for delete action
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [isChangingRole, setIsChangingRole] = useState(false);
@@ -64,8 +68,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ params }) => {
   // Update local state when userData from context changes
   useEffect(() => {
     if (userData) {
-        setNotificationsEnabled(userData.billNotificationsEnabled ?? false);
-        setSelectedRole(userData.role || urlRole); // Ensure selectedRole reflects fetched role
+        setNotificationsEnabled(
+          typeof userData.billNotificationsEnabled === "boolean" ? userData.billNotificationsEnabled : false
+        );
+        setSelectedRole(typeof userData.role === "string" ? userData.role : urlRole);
     }
 
     // Animation effect
@@ -97,16 +103,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ params }) => {
      }
      setIsSavingNotifications(true);
      try {
-         // *** Backend Change Needed ***
-         // Need to modify PUT /api/users/[address] to accept { billNotificationsEnabled: boolean }
-         // Assuming updateUserProfile from context handles the PUT request structure
-         // await updateUserProfile(address, { billNotificationsEnabled: enabled });
-
-         // Placeholder until backend is ready:
-         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-         console.log("Backend call needed to update notifications to:", enabled);
-         // --- End Placeholder
-
+         await updateUserProfile(address, { billNotificationsEnabled: enabled });
          setNotificationsEnabled(enabled);
          toast({ title: "Success", description: `Billing notifications ${enabled ? 'enabled' : 'disabled'}.` });
      } catch (error: any) {
@@ -120,9 +117,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ params }) => {
   };
 
    const handleRoleChange = async (newRole: string) => {
-       if (!address || !userData || newRole === userData.role) {
-           setSelectedRole(userData?.role || urlRole); // Reset select if no change or error
-           return; // No change or user data unavailable
+       const currentRole = typeof userData?.role === "string" ? userData.role : urlRole;
+       if (!address || !userData || newRole === currentRole) {
+           setSelectedRole(currentRole);
+           return;
        }
        setIsChangingRole(true);
        try {
@@ -143,7 +141,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ params }) => {
        } catch (error: any) {
            console.error("Error changing role:", error);
            toast({ title: "Error", description: "Failed to change role.", variant: "destructive" });
-           setSelectedRole(userData.role); // Revert dropdown on failure
+           setSelectedRole(typeof userData.role === "string" ? userData.role : urlRole);
        } finally {
            setIsChangingRole(false);
        }
@@ -169,7 +167,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ params }) => {
 
          toast({ title: "Account Deletion Initiated", description: "Your account deletion process has started." });
          // Disconnect wallet and redirect user after deletion
-         disconnectWallet?.(); // Call disconnect if available from context
+         disconnect();
          // Redirect logic here, e.g., router.push('/login');
      } catch (error: any) {
          console.error("Error deleting account:", error);
@@ -299,13 +297,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ params }) => {
 
                </CardContent>
                {/* Optional Logout Button */}
-                {disconnectWallet && (
-                    <CardFooter>
-                         <Button variant="outline" className="w-full cyber-button" onClick={disconnectWallet}>
-                             <LogOut className="mr-2 h-4 w-4" /> Disconnect Wallet
-                         </Button>
-                    </CardFooter>
-                )}
+                <CardFooter>
+                     <Button variant="outline" className="w-full cyber-button" onClick={disconnect}>
+                         <LogOut className="mr-2 h-4 w-4" /> Disconnect Wallet
+                     </Button>
+                </CardFooter>
              </Card>
            </div>
 
@@ -345,7 +341,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ params }) => {
                     <div className="space-y-2 rounded-lg border p-4">
                        <Label>Verification Status</Label>
                        <div className="flex items-center gap-2 text-sm">
-                        {userData?.verified ? (
+                        {userData?.verified === true ? (
                           <> <CheckCircle className="h-4 w-4 text-emerald-500" /> <span className="text-emerald-500">Verified</span> </>
                         ) : (
                           <> <AlertCircle className="h-4 w-4 text-amber-500" /> <span className="text-amber-500">Not Verified</span> </>

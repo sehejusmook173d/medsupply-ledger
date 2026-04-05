@@ -3,6 +3,7 @@ import "@/app/globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { WalletProvider } from "@/context/wallet-context"
+import { MedxDataProvider } from "@/context/medx-data-context"
 import type { Metadata } from "next"
 import { Space_Grotesk } from "next/font/google"
 
@@ -23,18 +24,17 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${spaceGrotesk.className} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <WalletProvider>
-            <div className="min-h-screen bg-gradient-to-b from-background/95 to-background/80 backdrop-blur">
-              {children}
-              <div className="fixed inset-0 -z-10 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
-              <Toaster />
-            </div>
-          </WalletProvider>
+          <MedxDataProvider>
+            <WalletProvider>
+              <div className="min-h-screen bg-gradient-to-b from-background/95 to-background/80 backdrop-blur">
+                {children}
+                <div className="fixed inset-0 -z-10 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
+                <Toaster />
+              </div>
+            </WalletProvider>
+          </MedxDataProvider>
         </ThemeProvider>
       </body>
     </html>
   )
 }
-
-
-import './globals.css'
