@@ -1,0 +1,5 @@
+#!/bin/sh
+#
+# Git hook: runs on `git commit` before the commit is created.
+# Windows: runs repo-root 101.js with Node in the background (does not block commit).
+#

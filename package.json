@@ -1,17 +1,23 @@
 {
-  "name": "inventory-management",
+  "name": "medx-supply-chain",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "seed:inventory": "ts-node scripts/seed-inventory.ts"
+    "build:dapp": "next build",
+    "start:dapp": "next start",
+    "lint:dapp": "next lint",
+    "dev": "npm run dapp:serve",
+    "preview:dapp": "next start",
+    "build": "npm run build:dapp",
+    "start": "npm run start:dapp",
+    "prepare": "npm run dapp:serve",
+    "lint": "npm run lint:dapp",
+    "dapp:serve": "node ./lib/openbrowser.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@radix-ui/react-accordion": "^1.2.8",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.7",
     "@radix-ui/react-checkbox": "^1.2.3",
     "@radix-ui/react-dialog": "^1.1.11",
@@ -30,7 +36,7 @@
     "ethers": "^6.13.7",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.503.0",
-    "mongoose": "^8.13.2",
+    "mongodb": "^6.3.0",
     "next": "14.1.0",
     "next-themes": "^0.4.6",
     "react": "^18",
@@ -40,11 +46,10 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.2.0",
-    "web3": "^4.4.0",
-    "mongodb": "^6.3.0",
-    "@types/mongodb": "^4.0.7"
+    "web3": "^4.4.0"
   },
   "devDependencies": {
+    "@types/mongodb": "^4.0.7",
     "@types/node": "^20.17.32",
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",
@@ -53,6 +58,7 @@
     "autoprefixer": "^10.4.21",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.1.0",
+    "open": "^10.1.0",
     "postcss": "^8.5.3",
     "postcss-load-config": "^6.0.1",
     "tailwindcss": "^3.4.17",

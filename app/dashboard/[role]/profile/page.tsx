@@ -12,6 +12,10 @@ import { useWallet } from "@/context/wallet-context"; // Assuming path is correc
 import { Copy, Edit, Save, Shield } from "lucide-react";
 
 // 2. Update props interface to indicate params is a Promise
+function pickStr(v: unknown): string {
+  return typeof v === "string" ? v : ""
+}
+
 interface ProfilePageProps {
   params: {
     role: "provider" | "manufacturer" | "distributor" | "retailer";
@@ -43,13 +47,13 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   useEffect(() => {
       if (userData) {
         setProfileData({
-            name: userData.name || '',
-            companyName: userData.companyName || '',
-            email: userData.email || '',
-            phone: userData.phone || '',
-            location: userData.location || '',
-            registrationId: userData.registrationId || '', // Assuming these fields exist
-            licenseNumber: userData.licenseNumber || '',  // Assuming these fields exist
+            name: pickStr(userData.name),
+            companyName: pickStr(userData.companyName),
+            email: pickStr(userData.email),
+            phone: pickStr(userData.phone),
+            location: pickStr(userData.location),
+            registrationId: pickStr(userData.registrationId),
+            licenseNumber: pickStr(userData.licenseNumber),
         });
         setIsLoaded(true);
       } else if (address) {
@@ -72,9 +76,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   // Updated save handler to use context function
   const handleSave = async () => {
-    if (!address || !updateUserProfile) {
-        console.error("Wallet not connected or update function unavailable");
-        // Add user feedback, e.g., toast notification
+    if (!address) {
+        console.error("Wallet not connected");
         return;
     }
     setIsLoading(true);
