@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Plus, Minus, ShoppingCart } from "lucide-react";
-import axios from "axios";
+import { useMedxData } from "@/context/medx-data-context";
+import { normalizeAddress } from "@/lib/medx-mvp-store";
 
 interface User {
   _id: string;
@@ -44,9 +45,10 @@ export function NewOrderModal({
   isOpen,
   onClose,
   currentUserAddress,
-  currentUserRole,
+  currentUserRole: _currentUserRole,
   onOrderCreated,
 }: NewOrderModalProps) {
+  const { tick, usersInRole, inventoryFor, getUser, createOrder } = useMedxData();
   const [step, setStep] = useState(1);
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -56,83 +58,45 @@ export function NewOrderModal({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch users when role is selected
   useEffect(() => {
-    if (selectedRole) {
-      fetchUsersByRole(selectedRole);
+    if (!isOpen) {
+      setStep(1);
+      setSelectedRole("");
+      setSelectedUser(null);
+      setUsers([]);
+      setInventoryItems([]);
+      setCart([]);
     }
-  }, [selectedRole]);
+  }, [isOpen]);
 
-  // Fetch inventory when user is selected
+  useEffect(() => {
+    if (!selectedRole) {
+      setUsers([]);
+      return;
+    }
+    setLoading(true);
+    const list = usersInRole(selectedRole)
+      .filter((u) => normalizeAddress(u.walletAddress) !== normalizeAddress(currentUserAddress || ""))
+      .map(
+        (u): User => ({
+          _id: u.address,
+          walletAddress: u.walletAddress,
+          name: u.name,
+          companyName: u.companyName,
+          role: u.role,
+        })
+      );
+    setUsers(list);
+    setLoading(false);
+  }, [selectedRole, tick, currentUserAddress, usersInRole]);
+
   useEffect(() => {
     if (selectedUser) {
-      fetchInventoryItems(selectedUser.walletAddress);
-    }
-  }, [selectedUser]);
-
-  const fetchUsersByRole = async (role: string) => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`/api/users?role=${role}`);
-      if (response.data && Array.isArray(response.data)) {
-        setUsers(response.data);
-      } else {
-        setUsers([]);
-        toast({
-          title: "No users found",
-          description: `No ${role}s found in the system`,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive",
-      });
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchInventoryItems = async (address: string) => {
-    try {
-      setLoading(true);
-      console.log("Fetching inventory for address:", address);
-      const response = await axios.get(`/api/inventory/${address}`);
-      console.log("Raw inventory response:", response);
-      
-      if (response.status === 200) {
-        const data = response.data;
-        console.log("Inventory data:", data);
-        
-        if (Array.isArray(data)) {
-          setInventoryItems(data);
-          console.log("Set inventory items:", data);
-        } else {
-          console.error("Invalid response format:", data);
-          setInventoryItems([]);
-          toast({
-            title: "Error",
-            description: "Invalid inventory data format",
-            variant: "destructive",
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching inventory:", error);
+      setInventoryItems(inventoryFor(selectedUser.walletAddress));
+    } else {
       setInventoryItems([]);
-      toast({
-        title: "Error",
-        description: "Failed to fetch inventory items. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [selectedUser, tick, inventoryFor]);
 
   const addToCart = (item: InventoryItem) => {
     setCart((prevCart) => {
@@ -173,26 +137,32 @@ export function NewOrderModal({
   };
 
   const handleCreateOrder = async () => {
+    if (!currentUserAddress || !selectedUser) return;
     try {
       setLoading(true);
-      const response = await axios.post("/api/orders", {
-        from: currentUserAddress,
-        to: selectedUser?.walletAddress,
+      const fromU = getUser(currentUserAddress);
+      const toU = getUser(selectedUser.walletAddress);
+      createOrder({
+        from: normalizeAddress(currentUserAddress),
+        to: normalizeAddress(selectedUser.walletAddress),
+        fromLabel: fromU?.companyName || fromU?.name || currentUserAddress,
+        toLabel: toU?.companyName || toU?.name || selectedUser.walletAddress,
         items: cart.map((item) => ({
           productId: item._id,
+          name: item.name,
           quantity: item.quantityInCart,
+          price: item.price,
         })),
         totalAmount: getTotalAmount(),
+        status: "Pending",
       });
 
-      if (response.status === 201) {
-        toast({
-          title: "Success",
-          description: "Order created successfully",
-        });
-        onOrderCreated();
-        onClose();
-      }
+      toast({
+        title: "Order placed",
+        description: "Saved locally in this browser (MVP — no backend).",
+      });
+      onOrderCreated();
+      onClose();
     } catch (error) {
       console.error("Error creating order:", error);
       toast({
@@ -258,7 +228,7 @@ export function NewOrderModal({
                     const user = users.find((u) => u.walletAddress === value);
                     if (user) {
                       setSelectedUser(user);
-                      fetchInventoryItems(user.walletAddress);
+                      setInventoryItems(inventoryFor(user.walletAddress));
                     }
                   }}
                   disabled={loading}

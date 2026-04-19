@@ -52,7 +52,7 @@ function RoleCard({ title, description, icon, selected, onClick, color }: RoleCa
 }
 
 export default function RoleSelectionPage() {
-  const { isConnected, address, registerUser, checkUserRegistration } = useWallet()
+  const { isConnected, address, registerUser, checkUserRegistration, isHydrated } = useWallet()
   const router = useRouter()
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [isVisible, setIsVisible] = useState(false)
@@ -71,6 +71,7 @@ export default function RoleSelectionPage() {
   // Check for existing user and handle redirects
   useEffect(() => {
     const checkAndRedirect = async () => {
+      if (!isHydrated) return
       if (!isConnected) {
         router.push("/auth")
         return
@@ -93,7 +94,7 @@ export default function RoleSelectionPage() {
     }
 
     checkAndRedirect()
-  }, [isConnected, address, router, checkUserRegistration])
+  }, [isHydrated, isConnected, address, router, checkUserRegistration])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target

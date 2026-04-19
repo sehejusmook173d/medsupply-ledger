@@ -7,13 +7,6 @@ import Product from "../../../models/Product"
 import Inventory from "../../../models/Inventory"
 import { ethers } from "ethers"
 
-// Add type declaration for window.ethereum
-declare global {
-  interface Window {
-    ethereum: any
-  }
-}
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)

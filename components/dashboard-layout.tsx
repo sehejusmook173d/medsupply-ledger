@@ -58,7 +58,7 @@ const roleColors = {
 }
 
 export default function DashboardLayout({ children, role }: DashboardLayoutProps) {
-  const { isConnected, disconnect, address } = useWallet()
+  const { isConnected, disconnect, address, isHydrated } = useWallet()
   const router = useRouter()
   const pathname = usePathname()
   const [isVisible, setIsVisible] = useState(false)
@@ -67,14 +67,14 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
   useEffect(() => {
     setIsVisible(true)
 
+    if (!isHydrated) return
     if (!isConnected) {
       router.push("/auth")
     }
-  }, [isConnected, router])
+  }, [isHydrated, isConnected, router])
 
   const handleLogout = () => {
-    disconnect()
-    router.push("/")
+    void disconnect()
   }
 
   const navigation = [

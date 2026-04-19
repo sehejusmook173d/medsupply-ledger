@@ -2,7 +2,6 @@
 
 // 1. Import 'use' from React AND other necessary hooks/components
 import React, { useState, useEffect, use } from "react";
-import axios from 'axios'; // Import axios
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import DashboardLayout from "@/components/dashboard-layout"; // Assuming this component exists
 import {
